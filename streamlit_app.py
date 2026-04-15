@@ -175,7 +175,7 @@ with right:
 
         if confidence < CONFIDENCE_THRESHOLD:
             label = "Not a valid cassava leaf"
-            st.error("Prediction confidence is below 95%. This image may not be a valid cassava leaf.")
+            st.error("This image may not be a valid cassava leaf.")
         else:
             label = raw_label
 
