@@ -84,7 +84,7 @@ st.markdown("""
 # -----------------------------
 DEVICE = "cpu"
 IMG_SIZE = 224
-MODEL_PATH = r"C:\proj\cassava\outputs\best_efficientnet_b0.pth"
+MODEL_PATH = "outputs/best_efficientnet_b0.pth"
 
 CLASS_NAMES = [
     "Cassava Bacterial Blight",
