@@ -1,5 +1,4 @@
 import os
-import io
 import torch
 import torch.nn as nn
 import streamlit as st
@@ -85,6 +84,7 @@ st.markdown("""
 DEVICE = "cpu"
 IMG_SIZE = 224
 MODEL_PATH = "outputs/best_efficientnet_b0.pth"
+CONFIDENCE_THRESHOLD = 90.0
 
 CLASS_NAMES = [
     "Cassava Bacterial Blight",
@@ -100,6 +100,7 @@ DESCRIPTIONS = {
     "Cassava Green Mottle": "A leaf condition marked by mottled green patterns that may indicate abnormal development and possible stress on the crop.",
     "Cassava Mosaic Disease": "A viral disease recognized by mosaic-like patches and leaf distortion, often leading to reduced growth and lower yield.",
     "Healthy": "The leaf appears healthy, with no major visual signs of the cassava disease classes included in the model.",
+    "Not a valid cassava leaf": "The uploaded image is either not a cassava leaf or the model confidence is too low to provide a reliable prediction."
 }
 
 # -----------------------------
@@ -117,6 +118,10 @@ def load_model():
     model.to(DEVICE)
     model.eval()
     return model
+
+if not os.path.exists(MODEL_PATH):
+    st.error(f"Model file not found: {MODEL_PATH}")
+    st.stop()
 
 model = load_model()
 
@@ -166,7 +171,13 @@ with right:
         st.image(image, caption=uploaded_file.name, use_container_width=True)
 
         with st.spinner("Running model..."):
-            label, confidence, probs = predict_image(image)
+            raw_label, confidence, probs = predict_image(image)
+
+        if confidence < CONFIDENCE_THRESHOLD:
+            label = "Not a valid cassava leaf"
+            st.error("Prediction confidence is below 95%. This image may not be a valid cassava leaf.")
+        else:
+            label = raw_label
 
         st.markdown('<div class="result-card">', unsafe_allow_html=True)
         st.markdown('<div class="result-meta">Detected Condition</div>', unsafe_allow_html=True)
