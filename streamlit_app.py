@@ -83,7 +83,6 @@ st.markdown("""
 # -----------------------------
 DEVICE = "cpu"
 IMG_SIZE = 224
-MODEL_PATH = "outputs/best_efficientnet_b0.pth"
 CONFIDENCE_THRESHOLD = 90.0
 
 CLASS_NAMES = [
@@ -104,27 +103,35 @@ DESCRIPTIONS = {
 }
 
 # -----------------------------
-# MODEL
+# MODEL CONFIG
 # -----------------------------
-def build_model(num_classes=5):
-    model = models.efficientnet_b0(weights=None)
-    model.classifier[1] = nn.Linear(model.classifier[1].in_features, num_classes)
+MODEL_OPTIONS = {
+    "EfficientNet B0": "outputs/best_efficientnet_b0.pth",
+    "MobileNet V2": "outputs/best_mobilenet_v2.pth"
+}
+
+def build_model(model_name, num_classes=5):
+    if model_name == "EfficientNet B0":
+        model = models.efficientnet_b0(weights=None)
+        model.classifier[1] = nn.Linear(model.classifier[1].in_features, num_classes)
+    elif model_name == "MobileNet V2":
+        model = models.mobilenet_v2(weights=None)
+        model.classifier[1] = nn.Linear(model.classifier[1].in_features, num_classes)
+    else:
+        raise ValueError(f"Unsupported model: {model_name}")
     return model
 
-@st.cache_resource
-def load_model():
-    model = build_model(len(CLASS_NAMES))
-    model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
+@st.cache_resource(show_spinner=False)
+def load_model(model_name, model_path):
+    model = build_model(model_name, len(CLASS_NAMES))
+    model.load_state_dict(torch.load(model_path, map_location=DEVICE))
     model.to(DEVICE)
     model.eval()
     return model
 
-if not os.path.exists(MODEL_PATH):
-    st.error(f"Model file not found: {MODEL_PATH}")
-    st.stop()
-
-model = load_model()
-
+# -----------------------------
+# IMAGE TRANSFORM
+# -----------------------------
 transform = transforms.Compose([
     transforms.Resize((IMG_SIZE, IMG_SIZE)),
     transforms.ToTensor(),
@@ -132,7 +139,7 @@ transform = transforms.Compose([
                          [0.229, 0.224, 0.225]),
 ])
 
-def predict_image(image: Image.Image):
+def predict_image(image: Image.Image, model):
     image = image.convert("RGB")
     tensor = transform(image).unsqueeze(0).to(DEVICE)
 
@@ -158,6 +165,21 @@ with left:
         unsafe_allow_html=True
     )
 
+    selected_model_name = st.selectbox(
+        "Select AI Model",
+        list(MODEL_OPTIONS.keys())
+    )
+
+    model_path = MODEL_OPTIONS[selected_model_name]
+
+    if not os.path.exists(model_path):
+        st.error(f"Model file not found: {model_path}")
+        st.stop()
+
+    model = load_model(selected_model_name, model_path)
+
+    st.success(f"Using Model: {selected_model_name}")
+
     uploaded_file = st.file_uploader(
         "Upload a cassava leaf image",
         type=["jpg", "jpeg", "png"]
@@ -171,7 +193,7 @@ with right:
         st.image(image, caption=uploaded_file.name, use_container_width=True)
 
         with st.spinner("Running model..."):
-            raw_label, confidence, probs = predict_image(image)
+            raw_label, confidence, probs = predict_image(image, model)
 
         if confidence < CONFIDENCE_THRESHOLD:
             label = "Not a valid cassava leaf"
